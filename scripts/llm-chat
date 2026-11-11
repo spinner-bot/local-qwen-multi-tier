@@ -24,6 +24,11 @@ for arg in "$@"; do
 done
 
 started_here=0
+PIDFILE="$LLM_RUN/$tier.pid"
+existing_process=0
+if [[ -f "$PIDFILE" ]] && kill -0 "$(cat "$PIDFILE")" 2>/dev/null; then
+  existing_process=1
+fi
 cleanup() {
   local status=$?
   if (( started_here )) && [[ "$keep_running" != 1 ]]; then
@@ -35,7 +40,9 @@ trap cleanup EXIT
 
 if ! curl -fsS "http://127.0.0.1:$port/health" >/dev/null 2>&1; then
   "$SCRIPT_DIR/llm-up" "$tier"
-  started_here=1
+  if (( existing_process == 0 )); then
+    started_here=1
+  fi
 fi
 
 # The vLLM environment is the project's managed Python runtime.
