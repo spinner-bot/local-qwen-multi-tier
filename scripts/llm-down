@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+set -uo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck disable=SC1091
+source "$SCRIPT_DIR/../config/tiers.env"
+
+tier="${1:-}"
+if [[ -z "$tier" ]]; then
+  printf '用法: llm-down <l1|l2|l3|l3q|l4|l5>\n' >&2
+  exit 2
+fi
+[[ " $TIERS " == *" $tier "* ]] || { printf '未知层级: %s\n' "$tier" >&2; exit 2; }
+
+PIDFILE="$LLM_RUN/$tier.pid"
+if [[ ! -f "$PIDFILE" ]]; then
+  printf '%s 未在运行\n' "$tier"
+  exit 0
+fi
+pid=$(cat "$PIDFILE")
+if ! kill -0 "$pid" 2>/dev/null; then
+  printf 'PID %s 已不存在，清理记录\n' "$pid"
+  rm -f "$PIDFILE"
+  exit 0
+fi
+if ! tr '\0' ' ' < "/proc/$pid/cmdline" 2>/dev/null | grep -q 'vllm'; then
+  printf 'PID %s 不是 vLLM 进程，拒绝操作\n' "$pid" >&2
+  exit 1
+fi
+
+printf '停止 %s (PID %s)\n' "$tier" "$pid"
+kill -TERM "$pid" 2>/dev/null
+for _ in $(seq 1 120); do
+  kill -0 "$pid" 2>/dev/null || break
+  sleep 2
+done
+if kill -0 "$pid" 2>/dev/null; then
+  printf '优雅停止超时，发送 SIGKILL\n'
+  kill -KILL "$pid" 2>/dev/null
+  sleep 2
+fi
+rm -f "$PIDFILE"
+printf '已停止 %s\n' "$tier"
