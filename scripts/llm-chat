@@ -8,7 +8,7 @@ source "$SCRIPT_DIR/../config/tiers.env"
 tier="${1:-}"
 [[ -n "$tier" ]] || { printf '用法: llm-chat <l1|l2|l3|l3q|l4|l5> [chat 参数...]\n' >&2; exit 2; }
 if [[ "$tier" == "-h" || "$tier" == "--help" ]]; then
-  printf '用法: llm-chat <层级> [--prompt 文本] [--session ID] [--keep-running]\n按需启动模型并打开对话；本次启动的服务在退出时停止。\n'
+  printf '用法: llm-chat <层级> [--prompt 文本] [--session ID]\n按需启动模型并打开对话；本次启动的服务在退出时停止。\n'
   exit 0
 fi
 shift
@@ -17,14 +17,9 @@ var="TIER_${tier}_PORT"
 port="${!var:-}"
 [[ -n "$port" ]] || { printf '未知层级: %s\n' "$tier" >&2; exit 2; }
 
-keep_running="${LLM_KEEP_RUNNING:-0}"
 chat_args=()
 for arg in "$@"; do
-  if [[ "$arg" == "--keep-running" ]]; then
-    keep_running=1
-  else
-    chat_args+=("$arg")
-  fi
+  chat_args+=("$arg")
 done
 for arg in "${chat_args[@]}"; do
   if [[ "$arg" == "-h" || "$arg" == "--help" ]]; then
@@ -43,12 +38,16 @@ if [[ -f "$PIDFILE" ]] && kill -0 "$(cat "$PIDFILE")" 2>/dev/null; then
 fi
 cleanup() {
   local status=$?
-  if (( started_here )) && [[ "$keep_running" != 1 ]]; then
+  trap - EXIT HUP INT TERM
+  if (( started_here )); then
     "$SCRIPT_DIR/llm-down" "$tier" || true
   fi
   exit "$status"
 }
 trap cleanup EXIT
+trap 'exit 129' HUP
+trap 'exit 130' INT
+trap 'exit 143' TERM
 
 if ! curl -fsS "http://127.0.0.1:$port/health" >/dev/null 2>&1; then
   "$SCRIPT_DIR/llm-up" "$tier"
