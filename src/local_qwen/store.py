@@ -45,6 +45,7 @@ class ConversationStore:
                 );
                 """
             )
+        self.path.chmod(0o600)
 
     @contextmanager
     def _connect(self) -> Iterator[sqlite3.Connection]:
