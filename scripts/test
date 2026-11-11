@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck disable=SC1091
+source "$SCRIPT_DIR/../config/tiers.env"
+python_bin="$(dirname "$VLLM_BIN")/python"
+[[ -x "$python_bin" ]] || { printf '找不到 Python 运行环境: %s\n' "$python_bin" >&2; exit 1; }
+
+for script in llm-up llm-down llm-mode llm-status llm-chat llm-test download-models test; do
+  bash -n "$SCRIPT_DIR/$script" || { printf 'Shell 语法错误: %s\n' "$script" >&2; exit 1; }
+done
+
+PYTHONPATH="$SCRIPT_DIR/../src${PYTHONPATH:+:$PYTHONPATH}" \
+  "$python_bin" -m unittest discover -s "$SCRIPT_DIR/../tests" -v
+
+if [[ "${1:-}" == "--live" ]]; then
+  [[ -n "${2:-}" ]] || { printf '用法: scripts/test [--live <tier>]\n' >&2; exit 2; }
+  "$SCRIPT_DIR/llm-test" "$2"
+elif [[ $# -gt 0 ]]; then
+  printf '用法: scripts/test [--live <tier>]\n' >&2
+  exit 2
+fi
