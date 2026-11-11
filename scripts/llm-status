@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+set -uo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck disable=SC1091
+source "$SCRIPT_DIR/../config/tiers.env"
+
+get() { local v="TIER_$1_$2"; printf '%s' "${!v:-}"; }
+
+printf '%-4s %-30s %-8s %-6s %-8s %s\n' "级别" "模型" "PID" "端口" "健康" "GPU 占用"
+printf '%s\n' "--------------------------------------------------------------------------------"
+
+for tier in $TIERS; do
+  name=$(get "$tier" NAME)
+  port=$(get "$tier" PORT)
+  gpus=$(get "$tier" GPUS)
+  pidfile="$LLM_RUN/$tier.pid"
+  pid="-"
+  health="-"
+  if [[ -f "$pidfile" ]]; then
+    p=$(cat "$pidfile")
+    if kill -0 "$p" 2>/dev/null; then
+      pid=$p
+      if curl -sf "http://127.0.0.1:$port/health" >/dev/null 2>&1; then
+        health="ok"
+      else
+        health="loading"
+      fi
+    else
+      pid="dead"
+    fi
+  fi
+  mem=""
+  IFS=',' read -r -a gl <<< "$gpus"
+  for g in "${gl[@]}"; do
+    m=$(nvidia-smi --id="$g" --query-gpu=memory.used --format=csv,noheader,nounits 2>/dev/null | tr -dc '0-9')
+    mem+="GPU$g:${m:-?}M "
+  done
+  printf '%-4s %-30s %-8s %-6s %-8s %s\n' "$tier" "$name" "$pid" "$port" "$health" "$mem"
+done
+
+printf '\n监听端口：\n'
+ss -tln 2>/dev/null | awk '$4 ~ /:(8101|8102|8103|8104|8110)$/ {print "  " $4}'
