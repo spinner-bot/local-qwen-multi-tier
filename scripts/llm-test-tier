@@ -1,0 +1,41 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck disable=SC1091
+source "$SCRIPT_DIR/../config/tiers.env"
+
+tier="${1:-}"
+[[ -n "$tier" ]] || { printf '用法: llm-test-tier <l1|l2|l3|l3q|l4|l5>\n' >&2; exit 2; }
+tier="${tier,,}"
+port_var="TIER_${tier}_PORT"
+port="${!port_var:-}"
+[[ -n "$port" ]] || { printf '未知层级: %s\n' "$tier" >&2; exit 2; }
+
+started_here=0
+pidfile="$LLM_RUN/$tier.pid"
+existing_process=0
+if [[ -f "$pidfile" ]] && kill -0 "$(cat "$pidfile")" 2>/dev/null; then
+  existing_process=1
+fi
+cleanup() {
+  local status=$?
+  trap - EXIT HUP INT TERM
+  if (( started_here )); then
+    "$SCRIPT_DIR/llm-down" "$tier" || true
+  fi
+  exit "$status"
+}
+trap cleanup EXIT
+trap 'exit 129' HUP
+trap 'exit 130' INT
+trap 'exit 143' TERM
+
+if ! curl -fsS "http://127.0.0.1:$port/health" >/dev/null 2>&1; then
+  "$SCRIPT_DIR/llm-up" "$tier"
+  if (( existing_process == 0 )); then
+    started_here=1
+  fi
+fi
+
+"$SCRIPT_DIR/llm-test" "$tier"
