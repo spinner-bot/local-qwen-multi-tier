@@ -7,7 +7,7 @@ source "$SCRIPT_DIR/../config/tiers.env"
 python_bin="$(dirname "$VLLM_BIN")/python"
 [[ -x "$python_bin" ]] || { printf '找不到 Python 运行环境: %s\n' "$python_bin" >&2; exit 1; }
 
-for script in llm-up llm-down llm-mode llm-status llm-chat llm-test download-models test; do
+for script in llm-up llm-down llm-mode llm-status llm-chat llm-test verify-models download-models test; do
   bash -n "$SCRIPT_DIR/$script" || { printf 'Shell 语法错误: %s\n' "$script" >&2; exit 1; }
 done
 
