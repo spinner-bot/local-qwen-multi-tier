@@ -16,6 +16,8 @@ class Tier:
     name: str
     model: str
     port: int
+    local_path: Path
+    format: str
 
 
 def load_tiers(path: Path = MODEL_REGISTRY) -> dict[str, Tier]:
@@ -30,7 +32,13 @@ def load_tiers(path: Path = MODEL_REGISTRY) -> dict[str, Tier]:
                 port = int(row["port"])
             except (KeyError, ValueError) as exc:
                 raise ValueError(f"invalid port for tier {name!r}") from exc
-            tiers[name] = Tier(name=name, model=name, port=port)
+            tiers[name] = Tier(
+                name=name,
+                model=name,
+                port=port,
+                local_path=Path(row["local_path"]),
+                format=row["format"].strip(),
+            )
     if not tiers:
         raise ValueError(f"no tiers found in {path}")
     return tiers
