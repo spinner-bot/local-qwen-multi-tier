@@ -16,7 +16,10 @@ class TierConfigTests(unittest.TestCase):
         self.assertEqual(tiers["l5"].port, 8110)
 
     def test_lookup_is_case_insensitive(self):
-        self.assertEqual(get_tier("L2").model, "l2")
+        tier = get_tier("L2")
+        self.assertEqual(tier.model, "l2")
+        self.assertEqual(tier.format, "bf16")
+        self.assertEqual(tier.local_path.name, "Qwen3.5-9B")
 
     def test_unknown_tier_has_actionable_error(self):
         with self.assertRaisesRegex(ValueError, "unknown model tier"):
