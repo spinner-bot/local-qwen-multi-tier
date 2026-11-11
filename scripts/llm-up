@@ -53,13 +53,10 @@ else
   done
 fi
 
-# Keep startup working on installations without a CUDA compiler. In that case
-# use vLLM's native sampler instead of FlashInfer's JIT-compiled sampler.
-if ! command -v nvcc >/dev/null 2>&1 && [[ -z "${VLLM_USE_FLASHINFER_SAMPLER:-}" ]]; then
-  export VLLM_USE_FLASHINFER_SAMPLER=0
-fi
-if [[ -n "$USE_FLASHINFER_SAMPLER" && -z "${VLLM_USE_FLASHINFER_SAMPLER:-}" ]]; then
-  export VLLM_USE_FLASHINFER_SAMPLER="$USE_FLASHINFER_SAMPLER"
+# The installed FlashInfer sampler JIT is incompatible with this environment's
+# CUDA toolkit headers; use vLLM's native sampler unless explicitly overridden.
+if [[ -z "${VLLM_USE_FLASHINFER_SAMPLER:-}" ]]; then
+  export VLLM_USE_FLASHINFER_SAMPLER="${USE_FLASHINFER_SAMPLER:-0}"
 fi
 
 mkdir -p "$LLM_RUN/logs"
