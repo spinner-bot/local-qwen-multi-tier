@@ -7,9 +7,9 @@ source "$SCRIPT_DIR/../config/tiers.env"
 export HF_HUB_ENABLE_HF_TRANSFER=1
 mkdir -p "$LLM_MODELS" "$LLM_RUN/logs"
 LOG="$LLM_RUN/logs/download.log"
-log() { echo "[$(date +%F %T)] $*" | tee -a "$LOG"; }
+log() { printf '[%s] %s\n' "$(date '+%F %T')" "$*" | tee -a "$LOG"; }
 
-get() { local v="TIER_$1_$2"; echo "${!v:-}"; }
+get() { local v="TIER_$1_$2"; printf '%s' "${!v:-}"; }
 
 for tier in $DOWNLOAD_ORDER; do
   repo=$(get "$tier" REPO)
@@ -22,7 +22,7 @@ for tier in $DOWNLOAD_ORDER; do
     continue
   fi
 
-  avail_gb=$(( $(df -Pk /data | awk NR==2{print }) / 1024 / 1024 ))
+  avail_gb=$(( $(df -Pk /data | awk 'NR==2 {print $4}') / 1024 / 1024 ))
   if (( avail_gb < need * 2 )); then
     log "abort $tier: /data 剩余 ${avail_gb}G 不足"
     exit 1
