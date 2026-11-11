@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+# 按 DOWNLOAD_ORDER 顺序下载权重，断点续传，完成后写 .download_complete
+set -uo pipefail
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/../config/tiers.env"
+
+export HF_HUB_ENABLE_HF_TRANSFER=1
+mkdir -p "$LLM_MODELS" "$LLM_RUN/logs"
+LOG="$LLM_RUN/logs/download.log"
+log() { echo "[$(date +%F %T)] $*" | tee -a "$LOG"; }
+
+get() { local v="TIER_$1_$2"; echo "${!v:-}"; }
+
+for tier in $DOWNLOAD_ORDER; do
+  repo=$(get "$tier" REPO)
+  dest=$(get "$tier" PATH)
+  need=$(get "$tier" SIZE_GB)
+  [[ -n "$repo" ]] || { log "skip $tier: 未配置"; continue; }
+
+  if [[ -f "$dest/.download_complete" ]]; then
+    log "skip $tier: 已完成"
+    continue
+  fi
+
+  avail_gb=$(( $(df -Pk /data | awk NR==2{print }) / 1024 / 1024 ))
+  if (( avail_gb < need * 2 )); then
+    log "abort $tier: /data 剩余 ${avail_gb}G 不足"
+    exit 1
+  fi
+
+  log "start $tier $repo -> $dest (约 ${need}G)"
+  if "$HF_BIN" download "$repo" --local-dir "$dest" --max-workers 4; then
+    touch "$dest/.download_complete"
+    log "done $tier: $(du -sh "$dest" | cut -f1)"
+  else
+    log "fail $tier，保留已下载分片，可重跑续传"
+  fi
+done
+log "全部下载流程结束"
