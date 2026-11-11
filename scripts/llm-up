@@ -28,6 +28,8 @@ GPUS=$(get GPUS)
 PORT=$(get PORT)
 CTX=$(get CTX)
 UTIL=$(get UTIL)
+MAX_NUM_SEQS=$(get MAX_NUM_SEQS)
+USE_FLASHINFER_SAMPLER=$(get USE_FLASHINFER_SAMPLER)
 
 [[ -d "$MODEL" ]] || die "模型目录不存在: $MODEL（先运行 scripts/download-models）"
 compgen -G "$MODEL/*.safetensors" >/dev/null || die "未找到 safetensors: $MODEL"
@@ -53,6 +55,9 @@ fi
 # use vLLM's native sampler instead of FlashInfer's JIT-compiled sampler.
 if ! command -v nvcc >/dev/null 2>&1 && [[ -z "${VLLM_USE_FLASHINFER_SAMPLER:-}" ]]; then
   export VLLM_USE_FLASHINFER_SAMPLER=0
+fi
+if [[ -n "$USE_FLASHINFER_SAMPLER" && -z "${VLLM_USE_FLASHINFER_SAMPLER:-}" ]]; then
+  export VLLM_USE_FLASHINFER_SAMPLER="$USE_FLASHINFER_SAMPLER"
 fi
 
 mkdir -p "$LLM_RUN/logs"
@@ -83,6 +88,9 @@ done
 
 args=(serve "$MODEL" --served-model-name "$tier" --host 127.0.0.1 --port "$PORT" \
       --tensor-parallel-size "$TP" --max-model-len "$CTX" --gpu-memory-utilization "$UTIL")
+if [[ -n "$MAX_NUM_SEQS" ]]; then
+  args+=(--max-num-seqs "$MAX_NUM_SEQS")
+fi
 if [[ -r "$LLM_API_KEY_FILE" ]]; then
   args+=(--api-key "$(cat "$LLM_API_KEY_FILE")")
 fi
