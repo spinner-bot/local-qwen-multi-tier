@@ -17,7 +17,7 @@ sqs_A100 服务器上的**五档位本地 Qwen 备用服务**：模型权重预�
 
 ## GPU 布局
 
-`standard` 是需要专用 GPU 时才使用的多服务模式，不是本项目的默认运行方式。它会同时启动 L1–L4：
+以下是各档位的预留卡号和端口，表示可用时的单服务启动位置；共享服务器上不同时启动 L1–L4：
 
 ```
 GPU0  L1 4B        :8101
@@ -30,7 +30,7 @@ GPU3  L4 35B-A3B   :8104
 
 | 模式 | L5 用卡 | 前提 | L1–L4 |
 |---|---|---|---|
-| `flagship` | 4,5,6,7 | 4–7 空闲（需与 yj 协调） | 保持常驻 |
+| `flagship` | 4,5,6,7 | 4–7 空闲（需与 yj 协调） | 保持停止 |
 | `flagship-local` | 0,1,2,3 | 无前提 | 全部停止让路 |
 
 > ⚠️ 4–7 当前由组内其他成员使用，且组规为每人最多 4 卡。默认使用 `flagship-local`，除非确认 4–7 已释放。
@@ -43,7 +43,6 @@ scripts/llm-up l2                # 按需只启动 L2（先确认 GPU1 可用）
 scripts/llm-down l2              # 用完释放显存
 scripts/llm-chat l2              # 按需启动 L2，退出对话时自动停止
 scripts/llm-chat l2 --prompt '你好'  # 单轮调用，完成后自动停止
-scripts/llm-mode standard        # 特殊场景：同时启动 L1-L4
 scripts/llm-mode flagship-local  # 停 L1-L4，L5 占 0-3
 scripts/llm-mode flagship        # L5 占 4-7，L1-L4 保持
 scripts/llm-mode quality         # 停 L4，27B bf16 TP2 占 2-3
@@ -76,7 +75,7 @@ scripts/test --live l2                  # 另对已运行的 L2 API 做推理冒
 1. 权重 + 目标上下文 KV ≤ 单卡 ~36 GiB → 单卡，不拆 TP；吞吐不够加副本。
 2. 装不下或需要更长上下文 → TP2（L3Q）；只有 L5 用满 4 卡。
 3. 160 GiB 是**单任务可用容量**，不是多进程共享内存池。
-4. L1–L4 的分工是"每卡一条独立服务通道"，L5 独占时这些通道全部让路。
+4. L1–L4 的卡号是按需单服务的预留位置；共享服务器不运行常驻多层服务。
 
 ## 路由
 
