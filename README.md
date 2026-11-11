@@ -1,6 +1,6 @@
 # local-qwen-multi-tier
 
-sqs_A100 服务器上的**五档位本地 Qwen 部署**：从轻量、快速、低占用，到最强但慢、独占 4 卡。
+sqs_A100 服务器上的**五档位本地 Qwen 备用服务**：模型权重预先下载到本地，服务按需启动，用完停止，不长期占用共享 GPU。
 
 ## 分级
 
@@ -17,7 +17,7 @@ sqs_A100 服务器上的**五档位本地 Qwen 部署**：从轻量、快速、�
 
 ## GPU 布局
 
-标准模式下四级并行常驻：
+`standard` 是需要专用 GPU 时才使用的多服务模式，不是本项目的默认运行方式。它会同时启动 L1–L4：
 
 ```
 GPU0  L1 4B        :8101
@@ -26,7 +26,7 @@ GPU2  L3 27B       :8103
 GPU3  L4 35B-A3B   :8104
 ```
 
-L5 有两种启动形态：
+默认采用备用模式：只将权重保存在磁盘，所有推理服务停止。使用时确认目标 GPU 可用，再启动所需层级；结束后停止服务。L5 有两种启动形态：
 
 | 模式 | L5 用卡 | 前提 | L1–L4 |
 |---|---|---|---|
@@ -38,13 +38,18 @@ L5 有两种启动形态：
 ## 运行模式
 
 ```bash
-scripts/llm-mode standard        # L1-L4 常驻
+scripts/llm-mode standby         # 默认：停止所有服务，保留磁盘权重
+scripts/llm-up l2                # 按需只启动 L2（先确认 GPU1 可用）
+scripts/llm-down l2              # 用完释放显存
+scripts/llm-mode standard        # 特殊场景：同时启动 L1-L4
 scripts/llm-mode flagship-local  # 停 L1-L4，L5 占 0-3
 scripts/llm-mode flagship        # L5 占 4-7，L1-L4 保持
 scripts/llm-mode quality         # 停 L4，27B bf16 TP2 占 2-3
-scripts/llm-mode stop            # 全部停止
+scripts/llm-mode stop            # 全部停止（与 standby 一样保留权重）
 scripts/llm-status               # 查看状态
 ```
+
+`standby`/`stop` 只停止本项目的推理服务，不会删除模型权重、运行环境、对话记录或记忆库。权重应在需要使用前下载并校验完成；服务启动不会自动访问 Hugging Face 下载权重。
 
 ## 决策规则
 
@@ -84,13 +89,11 @@ l3 → l2 → l1
 /data/Users/zrh/.envs/bin/micromamba create -p /data/Users/zrh/.envs/envs/vllm python=3.11 -y
 /data/Users/zrh/.envs/envs/vllm/bin/pip install vllm "huggingface_hub[cli]"
 
-# 下载权重（按级别顺序）
-for m in Qwen3.5-4B Qwen3.5-9B Qwen3.5-27B-GPTQ-Int4 Qwen3.5-35B-A3B-GPTQ-Int4 Qwen3.5-122B-A10B-GPTQ-Int4; do
-  /data/Users/zrh/.envs/envs/vllm/bin/hf download "Qwen/$m" --local-dir "/data/Users/zrh/models/$m"
-done
+# 预先下载并校验计划内权重（可断点续传，不占 GPU）
+scripts/download-models
 
-# 起服务
-scripts/llm-mode standard
+# 确认服务全部停止；需要时再单独启动目标层级
+scripts/llm-mode standby
 scripts/llm-status
 ```
 
