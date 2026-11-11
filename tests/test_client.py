@@ -62,6 +62,15 @@ class LocalAPIClientTests(unittest.TestCase):
         self.assertEqual(_Handler.payload["chat_template_kwargs"], {"enable_thinking": False})
         self.assertEqual(_Handler.payload["messages"][0]["content"], "1+1?")
 
+    def test_empty_api_key_omits_authorization_header(self):
+        chat_completion(
+            self.base_url,
+            "",
+            "l1",
+            [{"role": "user", "content": "hello"}],
+        )
+        self.assertIsNone(_Handler.authorization)
+
 
 if __name__ == "__main__":
     unittest.main()
