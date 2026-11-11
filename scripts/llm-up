@@ -33,6 +33,27 @@ UTIL=$(get UTIL)
 compgen -G "$MODEL/*.safetensors" >/dev/null || die "未找到 safetensors: $MODEL"
 [[ -x "$VLLM_BIN" ]] || die "vLLM 不可执行: $VLLM_BIN（先安装 vllm 环境）"
 
+# pip-installed CUDA toolkits place nvcc under site-packages/nvidia/cu*/bin.
+# FlashInfer uses it to build sampling kernels on first startup.
+if [[ -n "${CUDA_HOME:-}" && -x "$CUDA_HOME/bin/nvcc" ]]; then
+  export PATH="$CUDA_HOME/bin:$PATH"
+else
+  vllm_env="$(cd "$(dirname "$VLLM_BIN")/.." && pwd)"
+  for nvcc in "$vllm_env"/lib/python*/site-packages/nvidia/cu*/bin/nvcc; do
+    if [[ -x "$nvcc" ]]; then
+      export CUDA_HOME="${nvcc%/bin/nvcc}"
+      export PATH="$CUDA_HOME/bin:$PATH"
+      break
+    fi
+  done
+fi
+
+# Keep startup working on installations without a CUDA compiler. In that case
+# use vLLM's native sampler instead of FlashInfer's JIT-compiled sampler.
+if ! command -v nvcc >/dev/null 2>&1 && [[ -z "${VLLM_USE_FLASHINFER_SAMPLER:-}" ]]; then
+  export VLLM_USE_FLASHINFER_SAMPLER=0
+fi
+
 mkdir -p "$LLM_RUN/logs"
 PIDFILE="$LLM_RUN/$tier.pid"
 LOGFILE="$LLM_RUN/logs/$tier.log"
