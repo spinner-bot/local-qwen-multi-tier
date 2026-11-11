@@ -66,8 +66,26 @@ PIDFILE="$LLM_RUN/$tier.pid"
 LOGFILE="$LLM_RUN/logs/$tier.log"
 
 if [[ -f "$PIDFILE" ]] && kill -0 "$(cat "$PIDFILE")" 2>/dev/null; then
-  printf '%s 已在运行 (PID %s)\n' "$tier" "$(cat "$PIDFILE")"
-  exit 0
+  pid=$(cat "$PIDFILE")
+  if curl -sf "http://127.0.0.1:$PORT/health" >/dev/null 2>&1; then
+    printf '%s 已就绪 (PID %s)\n' "$tier" "$pid"
+    exit 0
+  fi
+  printf '%s 正在启动 (PID %s)，等待健康检查\n' "$tier" "$pid"
+  for _ in $(seq 1 180); do
+    if ! kill -0 "$pid" 2>/dev/null; then
+      printf '启动失败，日志尾部：\n' >&2
+      tail -40 "$LOGFILE" >&2
+      rm -f "$PIDFILE"
+      exit 1
+    fi
+    if curl -sf "http://127.0.0.1:$PORT/health" >/dev/null 2>&1; then
+      printf '%s 就绪: http://127.0.0.1:%s/v1 (PID %s)\n' "$tier" "$PORT" "$pid"
+      exit 0
+    fi
+    sleep 10
+  done
+  die "等待 $tier 就绪超时，请查看 $LOGFILE"
 fi
 rm -f "$PIDFILE"
 
