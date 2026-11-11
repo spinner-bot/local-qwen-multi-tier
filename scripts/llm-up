@@ -80,10 +80,11 @@ IFS=',' read -r -a gpu_list <<< "$GPUS"
 for g in "${gpu_list[@]}"; do
   used=$(nvidia-smi --id="$g" --query-gpu=memory.used --format=csv,noheader,nounits 2>/dev/null | tr -dc '0-9')
   used=${used:-0}
-  if (( used > 2000 )) && (( ALLOW_BUSY == 0 )); then
+  compute_apps=$(nvidia-smi --id="$g" --query-compute-apps=pid,process_name,used_memory --format=csv,noheader 2>/dev/null || true)
+  if (( ALLOW_BUSY == 0 )) && { (( used > 2000 )) || [[ -n "$compute_apps" ]]; }; then
     printf 'GPU%s 已占用 %s MiB：\n' "$g" "$used" >&2
-    nvidia-smi --id="$g" --query-compute-apps=pid,process_name,used_memory --format=csv >&2
-    die "拒绝启动（确认可共存后加 --allow-busy）"
+    [[ -z "$compute_apps" ]] || printf '%s\n' "$compute_apps" >&2
+    die "检测到 GPU 计算进程，拒绝共用（确认可共存后加 --allow-busy）"
   fi
 done
 
