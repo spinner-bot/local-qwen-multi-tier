@@ -32,6 +32,7 @@ UTIL=$(get UTIL)
 [[ -d "$MODEL" ]] || die "模型目录不存在: $MODEL（先运行 scripts/download-models）"
 compgen -G "$MODEL/*.safetensors" >/dev/null || die "未找到 safetensors: $MODEL"
 [[ -x "$VLLM_BIN" ]] || die "vLLM 不可执行: $VLLM_BIN（先安装 vllm 环境）"
+export PATH="$(dirname "$VLLM_BIN"):$PATH"
 
 # pip-installed CUDA toolkits place nvcc under site-packages/nvidia/cu*/bin.
 # FlashInfer uses it to build sampling kernels on first startup.
