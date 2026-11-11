@@ -1,0 +1,10 @@
+tier	name	hf_repo	format	local_path	tp	size_gb	max_model_len	port	roles	status
+T0	Qwen3-4B	Qwen/Qwen3-4B	bf16	/data/Users/zrh/models/Qwen3-4B	1	8	32768	8001	sanity,classify,summary	planned
+T1	Qwen3-8B	Qwen/Qwen3-8B	bf16	/data/Users/zrh/models/Qwen3-8B	1	16	32768	8001	daily,translate	planned
+T2	Qwen3-14B	Qwen/Qwen3-14B	bf16	/data/Users/zrh/models/Qwen3-14B	1	28	32768	8002	daily,extract	planned
+T2	Qwen3-14B-AWQ	Qwen/Qwen3-14B-AWQ	awq	/data/Users/zrh/models/Qwen3-14B-AWQ	1	9	32768	8002	daily	planned
+T3	Qwen3-30B-A3B-AWQ	Qwen/Qwen3-30B-A3B-AWQ	awq	/data/Users/zrh/models/Qwen3-30B-A3B-AWQ	1	17	32768	8004	batch,agent	planned
+T4	Qwen3-32B	Qwen/Qwen3-32B	bf16	/data/Users/zrh/models/Qwen3-32B	2	64	32768	8003	code,reasoning	planned
+T4	Qwen3-32B-AWQ	Qwen/Qwen3-32B-AWQ	awq	/data/Users/zrh/models/Qwen3-32B-AWQ	1	18	32768	8003	code,reasoning	planned
+T5	Qwen3-72B-AWQ	Qwen/Qwen3-72B-AWQ	awq	/data/Users/zrh/models/Qwen3-72B-AWQ	2	40	32768	8010	hard-reasoning,long-doc	planned
+T6	Qwen3-235B-A22B-AWQ	Qwen/Qwen3-235B-A22B-AWQ	awq	/data/Users/zrh/models/Qwen3-235B-A22B-AWQ	4	120	32768	8020	offline-hard	planned
