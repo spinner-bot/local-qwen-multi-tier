@@ -30,8 +30,8 @@ GPU3  L4 35B-A3B   :8104
 
 | 模式 | L5 用卡 | 前提 | L1–L4 |
 |---|---|---|---|
-| `flagship` | 4,5,6,7 | 4–7 空闲（需与 yj 协调） | 保持停止 |
-| `flagship-local` | 0,1,2,3 | 无前提 | 全部停止让路 |
+| `flagship` | 4,5,6,7 | 4–7 空闲（需与 yj 协调） | 其他层级停止 |
+| `flagship-local` | 0,1,2,3 | 无前提 | 其他层级停止 |
 
 > ⚠️ 4–7 当前由组内其他成员使用，且组规为每人最多 4 卡。默认使用 `flagship-local`，除非确认 4–7 已释放。
 
@@ -45,7 +45,7 @@ scripts/llm-chat l2              # 按需启动 L2，退出对话时自动停止
 scripts/llm-chat l2 --prompt '你好'  # 单轮调用，完成后自动停止
 scripts/llm-mode flagship-local  # 停 L1-L4，L5 占 0-3
 scripts/llm-mode flagship        # L5 占 4-7，L1-L4 保持
-scripts/llm-mode quality         # 停 L4，27B bf16 TP2 占 2-3
+scripts/llm-mode quality         # 停其他层级，27B bf16 TP2 单独占 2-3
 scripts/llm-mode stop            # 全部停止（与 standby 一样保留权重）
 scripts/llm-status               # 查看状态
 ```
