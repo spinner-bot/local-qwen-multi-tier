@@ -112,13 +112,14 @@ args=(serve "$MODEL" --served-model-name "$tier" --host 127.0.0.1 --port "$PORT"
 if [[ -n "$MAX_NUM_SEQS" ]]; then
   args+=(--max-num-seqs "$MAX_NUM_SEQS")
 fi
-if [[ -r "$LLM_API_KEY_FILE" ]]; then
-  args+=(--api-key "$(cat "$LLM_API_KEY_FILE")")
-fi
-
 printf '启动 %s (%s) GPUs=%s TP=%s port=%s ctx=%s util=%s\n' "$tier" "$NAME" "$GPUS" "$TP" "$PORT" "$CTX" "$UTIL"
-HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 CUDA_VISIBLE_DEVICES="$GPUS" \
-  nohup "$VLLM_BIN" "${args[@]}" > "$LOGFILE" 2>&1 &
+if [[ -r "$LLM_API_KEY_FILE" ]]; then
+  VLLM_API_KEY="$(cat "$LLM_API_KEY_FILE")" HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 CUDA_VISIBLE_DEVICES="$GPUS" \
+    nohup "$VLLM_BIN" "${args[@]}" > "$LOGFILE" 2>&1 &
+else
+  HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 CUDA_VISIBLE_DEVICES="$GPUS" \
+    nohup "$VLLM_BIN" "${args[@]}" > "$LOGFILE" 2>&1 &
+fi
 printf '%s\n' "$!" > "$PIDFILE"
 pid=$(cat "$PIDFILE")
 
