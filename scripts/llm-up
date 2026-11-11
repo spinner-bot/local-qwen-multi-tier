@@ -32,6 +32,7 @@ MAX_NUM_SEQS=$(get MAX_NUM_SEQS)
 USE_FLASHINFER_SAMPLER=$(get USE_FLASHINFER_SAMPLER)
 
 [[ -d "$MODEL" ]] || die "模型目录不存在: $MODEL（先运行 scripts/download-models）"
+[[ -f "$MODEL/.download_complete" ]] || die "权重尚未完成本地下载: $MODEL（启动服务不会下载权重；先运行 scripts/download-models）"
 compgen -G "$MODEL/*.safetensors" >/dev/null || die "未找到 safetensors: $MODEL"
 [[ -x "$VLLM_BIN" ]] || die "vLLM 不可执行: $VLLM_BIN（先安装 vllm 环境）"
 export PATH="$(dirname "$VLLM_BIN"):$PATH"
@@ -96,7 +97,8 @@ if [[ -r "$LLM_API_KEY_FILE" ]]; then
 fi
 
 printf '启动 %s (%s) GPUs=%s TP=%s port=%s ctx=%s util=%s\n' "$tier" "$NAME" "$GPUS" "$TP" "$PORT" "$CTX" "$UTIL"
-CUDA_VISIBLE_DEVICES="$GPUS" nohup "$VLLM_BIN" "${args[@]}" > "$LOGFILE" 2>&1 &
+HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 CUDA_VISIBLE_DEVICES="$GPUS" \
+  nohup "$VLLM_BIN" "${args[@]}" > "$LOGFILE" 2>&1 &
 printf '%s\n' "$!" > "$PIDFILE"
 pid=$(cat "$PIDFILE")
 
