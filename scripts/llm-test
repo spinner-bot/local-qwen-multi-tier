@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck disable=SC1091
+source "$SCRIPT_DIR/../config/tiers.env"
+python_bin="$(dirname "$VLLM_BIN")/python"
+[[ -x "$python_bin" ]] || { printf '找不到 Python 运行环境: %s\n' "$python_bin" >&2; exit 1; }
+PYTHONPATH="$SCRIPT_DIR/../src${PYTHONPATH:+:$PYTHONPATH}" \
+  exec "$python_bin" -m local_qwen.smoke "$@"
