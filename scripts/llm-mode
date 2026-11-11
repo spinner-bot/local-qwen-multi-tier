@@ -12,20 +12,20 @@ case "$mode" in
     exit 2
     ;;
   flagship)
-    printf '模式: flagship（L5 用 %s，L1-L4 保持）\n' "${LLM_L5_GPUS:-4,5,6,7}"
+    printf '模式: flagship（L5 用 %s，其余层级停止）\n' "${LLM_L5_GPUS:-4,5,6,7}"
+    for t in l1 l2 l3 l3q l4 l5; do "$SCRIPT_DIR/llm-down" "$t" || true; done
     export LLM_L5_GPUS="${LLM_L5_GPUS:-4,5,6,7}"
     "$SCRIPT_DIR/llm-up" l5
     ;;
   flagship-local)
     printf '模式: flagship-local（L5 用 0,1,2,3，L1-L4 让路）\n'
-    for t in l1 l2 l3 l3q l4; do "$SCRIPT_DIR/llm-down" "$t" || true; done
+    for t in l1 l2 l3 l3q l4 l5; do "$SCRIPT_DIR/llm-down" "$t" || true; done
     export LLM_L5_GPUS=0,1,2,3
     "$SCRIPT_DIR/llm-up" l5
     ;;
   quality)
-    printf '模式: quality（27B bf16 TP2 占 2,3，停 L3/L4）\n'
-    "$SCRIPT_DIR/llm-down" l4 || true
-    "$SCRIPT_DIR/llm-down" l3 || true
+    printf '模式: quality（27B bf16 TP2 占 2,3，其余层级停止）\n'
+    for t in l1 l2 l3 l3q l4 l5; do "$SCRIPT_DIR/llm-down" "$t" || true; done
     "$SCRIPT_DIR/llm-up" l3q
     ;;
   standby)
