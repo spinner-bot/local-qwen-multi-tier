@@ -57,7 +57,6 @@ scripts/llm-status               # 查看状态
 ```bash
 scripts/llm-chat l2                    # 自动启动/连接 L2，退出时释放本次启动的服务
 scripts/llm-chat l2 --prompt '你好'     # 单轮对话
-scripts/llm-chat l2 --keep-running      # 退出客户端后保留本次启动的服务
 scripts/chat l2 --session <会话ID>      # 连接已运行的 API 并继续会话
 scripts/chat --list-sessions            # 查看本地会话
 scripts/chat --list-memories            # 查看显式保存的记忆
