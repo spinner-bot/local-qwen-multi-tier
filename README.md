@@ -62,6 +62,7 @@ scripts/chat --list-sessions            # 查看本地会话
 scripts/chat --list-memories            # 查看显式保存的记忆
 scripts/verify-models                   # 校验计划内权重标记与所有索引分片
 scripts/llm-test-cpu l1                 # 不用 GPU，加载 L1 并跑三组推理检查
+scripts/llm-test-tier l2                # 空卡时自动启动 L2、跑在线检查并释放服务
 scripts/test                            # 运行本地逻辑测试
 scripts/test --live l2                  # 另对已运行的 L2 API 做推理冒烟测试
 ```
@@ -98,7 +99,7 @@ l3 → l2 → l1
 | `config/litellm.yaml` | 网关路由与降级 | 是 |
 | `scripts/llm-up` / `llm-down` / `llm-status` / `llm-mode` | 启停与状态 | 是 |
 | `scripts/llm-chat` / `scripts/chat` | 按需启动和本地会话对话 | 是 |
-| `scripts/verify-models` / `scripts/test` / `scripts/llm-test` | 权重与 API 验证 | 是 |
+| `scripts/verify-models` / `scripts/test` / `scripts/llm-test*` | 权重与模型验证 | 是 |
 | `scripts/llm-test-cpu` | L1/L2 CPU 加载与离线推理检查 | 是 |
 | `src/local_qwen/` | API 客户端、会话与记忆存储 | 是 |
 | `/data/Users/zrh/models/` | 权重 | 否 |
