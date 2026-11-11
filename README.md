@@ -41,6 +41,8 @@ GPU3  L4 35B-A3B   :8104
 scripts/llm-mode standby         # 默认：停止所有服务，保留磁盘权重
 scripts/llm-up l2                # 按需只启动 L2（先确认 GPU1 可用）
 scripts/llm-down l2              # 用完释放显存
+scripts/llm-chat l2              # 按需启动 L2，退出对话时自动停止
+scripts/llm-chat l2 --prompt '你好'  # 单轮调用，完成后自动停止
 scripts/llm-mode standard        # 特殊场景：同时启动 L1-L4
 scripts/llm-mode flagship-local  # 停 L1-L4，L5 占 0-3
 scripts/llm-mode flagship        # L5 占 4-7，L1-L4 保持
@@ -50,6 +52,21 @@ scripts/llm-status               # 查看状态
 ```
 
 `standby`/`stop` 只停止本项目的推理服务，不会删除模型权重、运行环境、对话记录或记忆库。权重应在需要使用前下载并校验完成；服务启动不会自动访问 Hugging Face 下载权重。
+
+## 对话客户端与记忆
+
+```bash
+scripts/llm-chat l2                    # 自动启动/连接 L2，退出时释放本次启动的服务
+scripts/llm-chat l2 --prompt '你好'     # 单轮对话
+scripts/llm-chat l2 --keep-running      # 退出客户端后保留本次启动的服务
+scripts/chat l2 --session <会话ID>      # 连接已运行的 API 并继续会话
+scripts/chat --list-sessions            # 查看本地会话
+scripts/chat --list-memories            # 查看显式保存的记忆
+```
+
+交互中可用 `/remember 键: 内容` 添加记忆、`/forget 键` 删除记忆、`/memories` 查看记忆、`/clear` 清除当前会话历史。记忆不会自动从对话中提取。会话和记忆保存在 `/data/Users/zrh/run/llm/chat.sqlite3`，仅本机使用；数据库文件权限为 600。停止模型服务不会删除这些记录。
+
+对话客户端默认禁用模型思考过程，使用 OpenAI 兼容的 `/v1/chat/completions` 接口。API 地址按 `models.tsv` 中的层级端口选择；可用 `LLM_API_BASE_URL` 覆盖地址。
 
 ## 决策规则
 
@@ -78,6 +95,8 @@ l3 → l2 → l1
 | `config/tiers.env` | 分级参数（唯一需要改的配置） | 是 |
 | `config/litellm.yaml` | 网关路由与降级 | 是 |
 | `scripts/llm-up` / `llm-down` / `llm-status` / `llm-mode` | 启停与状态 | 是 |
+| `scripts/llm-chat` / `scripts/chat` | 按需启动和本地会话对话 | 是 |
+| `src/local_qwen/` | API 客户端、会话与记忆存储 | 是 |
 | `/data/Users/zrh/models/` | 权重 | 否 |
 | `/data/Users/zrh/.envs/envs/vllm/` | 运行环境 | 否 |
 | `/data/Users/zrh/run/llm/` | PID 与日志 | 否 |
@@ -95,6 +114,9 @@ scripts/download-models
 # 确认服务全部停止；需要时再单独启动目标层级
 scripts/llm-mode standby
 scripts/llm-status
+
+# 自动化逻辑测试（不启动模型或占用 GPU）
+/data/Users/zrh/.envs/envs/vllm/bin/python -m unittest discover -s tests -v
 ```
 
 ## 安全与共享
