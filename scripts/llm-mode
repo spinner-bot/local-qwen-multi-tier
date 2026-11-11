@@ -1,0 +1,45 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck disable=SC1091
+source "$SCRIPT_DIR/../config/tiers.env"
+
+mode="${1:-}"
+case "$mode" in
+  standard)
+    printf '模式: standard（L1-L4 各占一卡）\n'
+    "$SCRIPT_DIR/llm-up" l1
+    "$SCRIPT_DIR/llm-up" l2
+    "$SCRIPT_DIR/llm-up" l3
+    "$SCRIPT_DIR/llm-up" l4
+    ;;
+  flagship)
+    printf '模式: flagship（L5 用 %s，L1-L4 保持）\n' "${LLM_L5_GPUS:-4,5,6,7}"
+    export LLM_L5_GPUS="${LLM_L5_GPUS:-4,5,6,7}"
+    "$SCRIPT_DIR/llm-up" l5
+    ;;
+  flagship-local)
+    printf '模式: flagship-local（L5 用 0,1,2,3，L1-L4 让路）\n'
+    for t in l1 l2 l3 l3q l4; do "$SCRIPT_DIR/llm-down" "$t" || true; done
+    export LLM_L5_GPUS=0,1,2,3
+    "$SCRIPT_DIR/llm-up" l5
+    ;;
+  quality)
+    printf '模式: quality（27B bf16 TP2 占 2,3，停 L3/L4）\n'
+    "$SCRIPT_DIR/llm-down" l4 || true
+    "$SCRIPT_DIR/llm-down" l3 || true
+    "$SCRIPT_DIR/llm-up" l3q
+    ;;
+  stop)
+    printf '停止全部档位\n'
+    for t in l1 l2 l3 l3q l4 l5; do "$SCRIPT_DIR/llm-down" "$t" || true; done
+    ;;
+  status)
+    exec "$SCRIPT_DIR/llm-status"
+    ;;
+  *)
+    printf '用法: llm-mode <standard|flagship|flagship-local|quality|stop|status>\n' >&2
+    exit 2
+    ;;
+esac
