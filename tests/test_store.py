@@ -27,7 +27,9 @@ class ConversationStoreTests(unittest.TestCase):
             [{"role": "user", "content": "你好"}, {"role": "assistant", "content": "你好！"}],
         )
         self.assertEqual(self.store.history(second), [])
-        self.assertEqual(self.store.list_sessions()[0]["message_count"], 0)
+        counts = {item["id"]: item["message_count"] for item in self.store.list_sessions()}
+        self.assertEqual(counts[first], 2)
+        self.assertEqual(counts[second], 0)
 
     def test_history_limit_returns_most_recent_messages_in_order(self):
         session = self.store.create_session("l2")
