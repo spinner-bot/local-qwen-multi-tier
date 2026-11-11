@@ -31,6 +31,10 @@ case "$mode" in
     "$SCRIPT_DIR/llm-down" l3 || true
     "$SCRIPT_DIR/llm-up" l3q
     ;;
+  standby)
+    printf '模式: standby（停止所有服务，保留本地权重）\n'
+    for t in l1 l2 l3 l3q l4 l5; do "$SCRIPT_DIR/llm-down" "$t" || true; done
+    ;;
   stop)
     printf '停止全部档位\n'
     for t in l1 l2 l3 l3q l4 l5; do "$SCRIPT_DIR/llm-down" "$t" || true; done
@@ -39,7 +43,7 @@ case "$mode" in
     exec "$SCRIPT_DIR/llm-status"
     ;;
   *)
-    printf '用法: llm-mode <standard|flagship|flagship-local|quality|stop|status>\n' >&2
+    printf '用法: llm-mode <standby|standard|flagship|flagship-local|quality|stop|status>\n' >&2
     exit 2
     ;;
 esac
