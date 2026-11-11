@@ -8,11 +8,8 @@ source "$SCRIPT_DIR/../config/tiers.env"
 mode="${1:-}"
 case "$mode" in
   standard)
-    printf '模式: standard（L1-L4 各占一卡）\n'
-    "$SCRIPT_DIR/llm-up" l1
-    "$SCRIPT_DIR/llm-up" l2
-    "$SCRIPT_DIR/llm-up" l3
-    "$SCRIPT_DIR/llm-up" l4
+    printf '错误: standard 模式会同时运行 L1-L4，不适用于共享服务器。请用 scripts/llm-chat <层级> 按需调用。\n' >&2
+    exit 2
     ;;
   flagship)
     printf '模式: flagship（L5 用 %s，L1-L4 保持）\n' "${LLM_L5_GPUS:-4,5,6,7}"
@@ -43,7 +40,7 @@ case "$mode" in
     exec "$SCRIPT_DIR/llm-status"
     ;;
   *)
-    printf '用法: llm-mode <standby|standard|flagship|flagship-local|quality|stop|status>\n' >&2
+    printf '用法: llm-mode <standby|flagship|flagship-local|quality|stop|status>\n' >&2
     exit 2
     ;;
 esac
