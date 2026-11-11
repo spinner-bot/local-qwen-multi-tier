@@ -60,6 +60,8 @@ def api_key() -> str:
     key_file = Path(os.environ.get("LLM_API_KEY_FILE", DEFAULT_ROOT / ".secrets/llm_api_key"))
     try:
         return key_file.read_text(encoding="utf-8").strip()
+    except FileNotFoundError:
+        return ""
     except OSError as exc:
         raise RuntimeError(f"API key file not readable: {key_file}") from exc
 
