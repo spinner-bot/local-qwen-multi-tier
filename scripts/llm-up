@@ -106,10 +106,10 @@ printf '启动 %s (%s) GPUs=%s TP=%s port=%s ctx=%s util=%s\n' "$tier" "$NAME" "
 printf '%s\n' "$GPUS" > "$LLM_RUN/$tier.gpus"
 if [[ -r "$LLM_API_KEY_FILE" ]]; then
   VLLM_API_KEY="$(cat "$LLM_API_KEY_FILE")" HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 CUDA_VISIBLE_DEVICES="$GPUS" \
-    nohup "$VLLM_BIN" "${args[@]}" > "$LOGFILE" 2>&1 &
+    nohup setsid "$VLLM_BIN" "${args[@]}" </dev/null > "$LOGFILE" 2>&1 &
 else
   HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 CUDA_VISIBLE_DEVICES="$GPUS" \
-    nohup "$VLLM_BIN" "${args[@]}" > "$LOGFILE" 2>&1 &
+    nohup setsid "$VLLM_BIN" "${args[@]}" </dev/null > "$LOGFILE" 2>&1 &
 fi
 printf '%s\n' "$!" > "$PIDFILE"
 pid=$(cat "$PIDFILE")
