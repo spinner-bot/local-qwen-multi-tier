@@ -1,0 +1,37 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+count="${1:-}"
+allow_busy="${2:-0}"
+[[ "$count" =~ ^[1-9][0-9]*$ ]] || { printf '用法: llm-select-gpus <卡数> [--allow-busy]\n' >&2; exit 2; }
+[[ "$allow_busy" == "0" || "$allow_busy" == "--allow-busy" ]] || { printf '未知参数: %s\n' "$allow_busy" >&2; exit 2; }
+
+if [[ -n "${LLM_GPU_POOL:-}" ]]; then
+  IFS=',' read -r -a candidates <<< "$LLM_GPU_POOL"
+else
+  mapfile -t candidates < <(nvidia-smi --query-gpu=index --format=csv,noheader 2>/dev/null | tr -d ' ')
+fi
+((${#candidates[@]} > 0)) || { printf '未发现可用 NVIDIA GPU\n' >&2; exit 1; }
+
+selected=()
+busy=()
+for gpu in "${candidates[@]}"; do
+  [[ "$gpu" =~ ^[0-9]+$ ]] || { printf 'GPU 编号无效: %s\n' "$gpu" >&2; exit 2; }
+  memory=$(nvidia-smi --id="$gpu" --query-gpu=memory.used --format=csv,noheader,nounits 2>/dev/null | tr -dc '0-9') || memory=""
+  [[ "$memory" =~ ^[0-9]+$ ]] || { printf '无法读取 GPU%s 显存状态\n' "$gpu" >&2; continue; }
+  processes=$(nvidia-smi --id="$gpu" --query-compute-apps=pid,process_name,used_memory --format=csv,noheader 2>/dev/null || true)
+  if [[ "$allow_busy" == "--allow-busy" || ( "$memory" -le 2000 && -z "$processes" ) ]]; then
+    selected+=("$gpu")
+    ((${#selected[@]} >= count)) && break
+  else
+    busy+=("GPU${gpu}:${memory}MiB")
+  fi
+done
+
+if ((${#selected[@]} < count)); then
+  printf '需要 %s 张空闲 GPU，仅找到 %s 张。' "$count" "${#selected[@]}" >&2
+  ((${#busy[@]} == 0)) || printf ' 忙碌卡: %s' "${busy[*]}" >&2
+  printf '\n' >&2
+  exit 1
+fi
+IFS=,; printf '%s\n' "${selected[*]}"

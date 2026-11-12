@@ -24,7 +24,6 @@ get() { local v="TIER_${tier}_$1"; printf '%s' "${!v:-}"; }
 NAME=$(get NAME)
 MODEL=$(get PATH)
 TP=$(get TP)
-GPUS=$(get GPUS)
 PORT=$(get PORT)
 CTX=$(get CTX)
 UTIL=$(get UTIL)
@@ -75,6 +74,7 @@ if [[ -f "$PIDFILE" ]] && kill -0 "$(cat "$PIDFILE")" 2>/dev/null; then
       printf '启动失败，日志尾部：\n' >&2
       tail -40 "$LOGFILE" >&2
       rm -f "$PIDFILE"
+      rm -f "$LLM_RUN/$tier.gpus"
       exit 1
     fi
     if curl -sf "http://127.0.0.1:$PORT/health" >/dev/null 2>&1; then
@@ -91,18 +91,11 @@ if ss -tln 2>/dev/null | awk '{print $4}' | grep -qE "[:.]${PORT}$"; then
   die "端口 $PORT 已被占用"
 fi
 
+selector_args=("$TP")
+(( ALLOW_BUSY == 0 )) || selector_args+=(--allow-busy)
+GPUS=$("$SCRIPT_DIR/llm-select-gpus" "${selector_args[@]}") || die "无法为 $tier 分配 $TP 张空闲 GPU"
 IFS=',' read -r -a gpu_list <<< "$GPUS"
-(( ${#gpu_list[@]} == TP )) || die "GPU 数(${#gpu_list[@]}) 与 TP($TP) 不匹配"
-for g in "${gpu_list[@]}"; do
-  used=$(nvidia-smi --id="$g" --query-gpu=memory.used --format=csv,noheader,nounits 2>/dev/null | tr -dc '0-9')
-  used=${used:-0}
-  compute_apps=$(nvidia-smi --id="$g" --query-compute-apps=pid,process_name,used_memory --format=csv,noheader 2>/dev/null || true)
-  if (( ALLOW_BUSY == 0 )) && { (( used > 2000 )) || [[ -n "$compute_apps" ]]; }; then
-    printf 'GPU%s 已占用 %s MiB：\n' "$g" "$used" >&2
-    [[ -z "$compute_apps" ]] || printf '%s\n' "$compute_apps" >&2
-    die "检测到 GPU 计算进程，拒绝共用（确认可共存后加 --allow-busy）"
-  fi
-done
+(( ${#gpu_list[@]} == TP )) || die "动态分配到的 GPU 数(${#gpu_list[@]}) 与 TP($TP) 不匹配"
 
 args=(serve "$MODEL" --served-model-name "$tier" --host 127.0.0.1 --port "$PORT" \
       --tensor-parallel-size "$TP" --max-model-len "$CTX" --gpu-memory-utilization "$UTIL")
@@ -110,6 +103,7 @@ if [[ -n "$MAX_NUM_SEQS" ]]; then
   args+=(--max-num-seqs "$MAX_NUM_SEQS")
 fi
 printf '启动 %s (%s) GPUs=%s TP=%s port=%s ctx=%s util=%s\n' "$tier" "$NAME" "$GPUS" "$TP" "$PORT" "$CTX" "$UTIL"
+printf '%s\n' "$GPUS" > "$LLM_RUN/$tier.gpus"
 if [[ -r "$LLM_API_KEY_FILE" ]]; then
   VLLM_API_KEY="$(cat "$LLM_API_KEY_FILE")" HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 CUDA_VISIBLE_DEVICES="$GPUS" \
     nohup "$VLLM_BIN" "${args[@]}" > "$LOGFILE" 2>&1 &
@@ -125,6 +119,7 @@ for _ in $(seq 1 180); do
     printf '启动失败，日志尾部：\n' >&2
     tail -40 "$LOGFILE" >&2
     rm -f "$PIDFILE"
+    rm -f "$LLM_RUN/$tier.gpus"
     exit 1
   fi
   if curl -sf "http://127.0.0.1:$PORT/health" >/dev/null 2>&1; then
@@ -134,4 +129,5 @@ for _ in $(seq 1 180); do
   sleep 10
 done
 printf '等待就绪超时，请查看 %s\n' "$LOGFILE" >&2
+rm -f "$LLM_RUN/$tier.gpus"
 exit 1
