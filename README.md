@@ -6,46 +6,45 @@ sqs_A100 服务器上的**五档位本地 Qwen 备用服务**：模型权重预�
 
 | 级别 | 模型 | 量化 | 权重 | 卡 | 端口 | 上下文 | 定位 |
 |---|---|---|---:|---|---:|---:|---|
-| L1 极速 | Qwen3.5-4B | bf16 | 9.3 GB | 0 | 8101 | 32k | 冒烟、分类、路由、短摘要 |
-| L2 日常 | Qwen3.5-9B | bf16 | 19.3 GB | 1 | 8102 | 32k | 问答、翻译、抽取、改写 |
-| L3 质量 | Qwen3.5-27B | GPTQ-Int4 | 30.2 GB | 2 | 8103 | 16k | 代码、复杂指令、长文档 |
-| L3Q 质量+ | Qwen3.5-27B | bf16 (TP2) | 55.6 GB | 2,3 | 8103 | 32k | 质量优先，替换 L4 时使用 |
-| L4 吞吐 | Qwen3.5-35B-A3B | GPTQ-Int4 | 24.4 GB | 3 | 8104 | 32k | 高并发、agent、批量标注 |
-| L5 旗舰 | Qwen3.5-122B-A10B | GPTQ-Int4 (TP4) | 78.9 GB | 4-7 或 0-3 | 8110 | 64k | 最难任务，慢但最强 |
+| L1 极速 | Qwen3.5-4B | bf16 | 9.3 GB | 动态 1 卡 | 8101 | 32k | 冒烟、分类、路由、短摘要 |
+| L2 日常 | Qwen3.5-9B | bf16 | 19.3 GB | 动态 1 卡 | 8102 | 32k | 问答、翻译、抽取、改写 |
+| L3 质量 | Qwen3.5-27B | GPTQ-Int4 | 30.2 GB | 动态 1 卡 | 8103 | 16k | 代码、复杂指令、长文档 |
+| L3Q 质量+ | Qwen3.5-27B | bf16 (TP2) | 55.6 GB | 动态 2 卡 | 8103 | 32k | 质量优先，替换 L4 时使用 |
+| L4 吞吐 | Qwen3.5-35B-A3B | GPTQ-Int4 | 24.4 GB | 动态 1 卡 | 8104 | 32k | 高并发、agent、批量标注 |
+| L5 旗舰 | Qwen3.5-122B-A10B | GPTQ-Int4 (TP4) | 78.9 GB | 动态 4 卡 | 8110 | 64k | 最难任务，慢但最强 |
 
 权重合计约 162 GB，统一放在 `/data/Users/zrh/models/`（不入库）。
 
 ## GPU 布局
 
-以下是各档位的预留卡号和端口，表示可用时的单服务启动位置；共享服务器上不同时启动 L1–L4：
+启动器按模型所需的并行卡数，从服务器当前空闲 GPU 中动态挑选；L1/L2/L3/L4 各需 1 张，L3Q 需 2 张，L5 需 4 张。GPU 编号不与模型绑定。可通过 `LLM_GPU_POOL=0,1,2,3` 限定候选卡池；默认检查服务器上的全部 GPU。
 
 ```
-GPU0  L1 4B        :8101
-GPU1  L2 9B        :8102
-GPU2  L3 27B       :8103
-GPU3  L4 35B-A3B   :8104
+L1 4B        :8101  TP=1
+L2 9B        :8102  TP=1
+L3 27B       :8103  TP=1
+L4 35B-A3B   :8104  TP=1
+L3Q 27B BF16 :8103  TP=2
+L5 122B      :8110  TP=4
 ```
 
-默认采用备用模式：只将权重保存在磁盘，所有推理服务停止。使用时确认目标 GPU 可用，再启动所需层级；结束后停止服务。L5 有两种启动形态：
+默认采用备用模式：只将权重保存在磁盘，所有推理服务停止。使用时启动器动态选择空闲 GPU，结束后停止服务。L5 的两个旧模式名都停止其他层级并动态选择 4 张空闲卡：
 
 | 模式 | L5 用卡 | 前提 | L1–L4 |
 |---|---|---|---|
-| `flagship` | 4,5,6,7 | 4–7 空闲（需与 yj 协调） | 其他层级停止 |
-| `flagship-local` | 0,1,2,3 | 无前提 | 其他层级停止 |
-
-> ⚠️ 4–7 当前由组内其他成员使用，且组规为每人最多 4 卡。默认使用 `flagship-local`，除非确认 4–7 已释放。
+| `flagship` / `flagship-local` | 动态选择任意 4 张空闲卡 | 需有 4 张空闲卡 | 其他层级停止 |
 
 ## 运行模式
 
 ```bash
 scripts/llm-mode standby         # 默认：停止所有服务，保留磁盘权重
-scripts/llm-up l2                # 按需只启动 L2（先确认 GPU1 可用）
+scripts/llm-up l2                # 按需启动 L2（自动选择一张空闲卡）
 scripts/llm-down l2              # 用完释放显存
 scripts/llm-chat l2              # 按需启动 L2，退出对话时自动停止
 scripts/llm-chat l2 --prompt '你好'  # 单轮调用，完成后自动停止
-scripts/llm-mode flagship-local  # 停 L1-L4，L5 占 0-3
-scripts/llm-mode flagship        # L5 占 4-7，L1-L4 保持
-scripts/llm-mode quality         # 停其他层级，27B bf16 TP2 单独占 2-3
+scripts/llm-mode flagship-local  # 停其他层级，L5 自动选 4 张空闲卡
+scripts/llm-mode flagship        # 与 flagship-local 一样，L5 自动选 4 张空闲卡
+scripts/llm-mode quality         # 停其他层级，L3Q 自动选 2 张空闲卡
 scripts/llm-mode stop            # 全部停止（与 standby 一样保留权重）
 scripts/llm-status               # 查看状态
 ```

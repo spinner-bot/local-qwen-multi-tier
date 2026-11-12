@@ -7,13 +7,12 @@ source "$SCRIPT_DIR/../config/tiers.env"
 
 get() { local v="TIER_$1_$2"; printf '%s' "${!v:-}"; }
 
-printf '%-4s %-30s %-8s %-6s %-8s %s\n' "级别" "模型" "PID" "端口" "健康" "GPU 占用"
+printf '%-4s %-30s %-8s %-6s %-8s %s\n' "级别" "模型" "PID" "端口" "健康" "GPU 分配"
 printf '%s\n' "--------------------------------------------------------------------------------"
 
 for tier in $TIERS; do
   name=$(get "$tier" NAME)
   port=$(get "$tier" PORT)
-  gpus=$(get "$tier" GPUS)
   pidfile="$LLM_RUN/$tier.pid"
   pid="-"
   health="-"
@@ -30,12 +29,12 @@ for tier in $TIERS; do
       pid="dead"
     fi
   fi
-  mem=""
-  IFS=',' read -r -a gl <<< "$gpus"
-  for g in "${gl[@]}"; do
-    m=$(nvidia-smi --id="$g" --query-gpu=memory.used --format=csv,noheader,nounits 2>/dev/null | tr -dc '0-9')
-    mem+="GPU$g:${m:-?}M "
-  done
+  gpu_file="$LLM_RUN/$tier.gpus"
+  if [[ "$pid" =~ ^[0-9]+$ && -r "$gpu_file" ]]; then
+    mem="GPU$(cat "$gpu_file")"
+  else
+    mem="动态分配（未运行）"
+  fi
   printf '%-4s %-30s %-8s %-6s %-8s %s\n' "$tier" "$name" "$pid" "$port" "$health" "$mem"
 done
 
